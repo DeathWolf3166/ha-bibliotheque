@@ -94,7 +94,8 @@ def references(config: Any) -> dict[str, set[str]]:
             services.add(o)
             return
         if key == "device_id":
-            devices.add(o)
+            if "{" not in o and "!input" not in o:  # templates and blueprint inputs are not real devices
+                devices.add(o)
             return
         for m in ENT_RX.finditer(o):
             if m.group(2) in SERVICE_VERBS:

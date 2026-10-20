@@ -26,7 +26,9 @@ async def test_device_mapping(hass: HomeAssistant, hass_ws_client, tmp_path) -> 
         }],
         "entities": {}, "devices": {OLD: {"name": "Bouton salon", "manufacturer": "IKEA", "model": "TRADFRI on/off switch", "integrations": ["zha"]}},
     }
+    snap["items"][0]["config"]["actions"].append({"repeat": {"for_each": [1], "sequence": [{"action": "light.turn_on", "target": {"device_id": "{{ repeat.item.device_ids }}"}}]}})
     an = analyzer.analyze(snap)
+    assert [d["id"] for d in an["packages"][0]["devices"]] == [OLD]
     pkg = an["packages"][0]
     assert pkg["devices"][0]["model"] == "TRADFRI on/off switch"
     library.write_export(tmp_path / "ha_library" / "library", an, snap, [pkg["id"]])
