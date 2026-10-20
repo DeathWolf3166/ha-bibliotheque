@@ -27,6 +27,7 @@ ENTITY_DOMAINS = (
     "water_heater|weather|zone|sun|conversation|ai_task|tts|stt|wake_word|assist_satellite|notify"
 )
 ENT_RX = re.compile(r"(?<![\w.])(" + ENTITY_DOMAINS + r")\.([a-z0-9_]*[a-z0-9])(?![\w({])")
+STATES_RX = re.compile(r"states\.(" + ENTITY_DOMAINS + r")\.([a-z0-9_]*[a-z0-9])(?![\w({])")
 SERVICE_RX = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 SERVICE_KEYS = {"action", "service"}
 HELPER_DOMAINS = {
@@ -99,6 +100,8 @@ def references(config: Any) -> dict[str, set[str]]:
             if m.group(2) in SERVICE_VERBS:
                 continue
             ents.add(m.group(0))
+        for m in STATES_RX.finditer(o):
+            ents.add(f"{m.group(1)}.{m.group(2)}")
 
     walk(config)
     # "script.my_script" called as a service is also an entity dependency
@@ -359,6 +362,8 @@ def analyze(snapshot: dict, rules: dict | None = None, overrides: dict | None = 
             devices |= it["_refs"]["devices"]
         p["requires"] = sorted(req)
         p["_ents"], p["_services"], p["device_ids"] = ents, services, sorted(devices)
+        dev_info = snapshot.get("devices") or {}
+        p["devices"] = [{"id": d, **(dev_info.get(d) or {"name": d, "manufacturer": None, "model": None, "integrations": []})} for d in sorted(devices)]
 
     def closure(gid: str) -> set[str]:
         seen, stack = set(), [gid]

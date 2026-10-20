@@ -213,6 +213,45 @@ async def async_plan(hass: HomeAssistant, root: Path, ids: list[str], mapping: d
             sugg = [{"entity_id": f"notify.{n}", "name": n, "score": 0} for n in sorted(hass.services.async_services().get("notify", {})) if n not in ("notify", "send_message", "persistent_notification")][:12]
         notify.append({"entity_id": s, "target": mapping.get(s) or "", "exists": exists, "suggestions": sugg})
 
+    # devices (device_id in triggers / conditions / actions)
+    from homeassistant.helpers import device_registry as dr
+
+    dev_reg = dr.async_get(hass)
+
+    def describe(dev) -> dict:
+        doms = sorted({ce.domain for ce_id in dev.config_entries if (ce := hass.config_entries.async_get_entry(ce_id))})
+        return {"id": dev.id, "name": dev.name_by_user or dev.name or dev.id, "manufacturer": dev.manufacturer, "model": dev.model, "integrations": doms}
+
+    all_devs = [describe(x) for x in dev_reg.devices.values()]
+    devices = []
+    seen_dev = set()
+    for p in pkgs.values():
+        for dv in p.get("devices", []):
+            if dv["id"] in seen_dev:
+                continue
+            seen_dev.add(dv["id"])
+            target = mapping.get(dv["id"]) or dv["id"]
+            exists = dev_reg.async_get(target) is not None
+            scored = []
+            if not exists:
+                want = _tokens(dv.get("name") or "")
+                for cand in all_devs:
+                    score = 0.0
+                    if dv.get("model") and cand["model"] == dv.get("model"):
+                        score += 2
+                    if dv.get("manufacturer") and cand["manufacturer"] == dv.get("manufacturer"):
+                        score += 1
+                    if set(dv.get("integrations") or []) & set(cand["integrations"]):
+                        score += 0.5
+                    have = _tokens(cand["name"])
+                    if want and have:
+                        score += len(want & have) / len(want | have)
+                    if score >= 1:
+                        scored.append((score, cand))
+                scored.sort(key=lambda x: -x[0])
+            devices.append({**dv, "target": mapping.get(dv["id"]) or "", "exists": exists,
+                            "suggestions": [c | {"score": round(s, 2)} for s, c in scored[:8]]})
+
     # secrets
     have_secrets = await hass.async_add_executor_job(_read_secret_keys, config_dir)
     secrets = [{"name": s, "exists": s in have_secrets} for s in sorted({s for p in pkgs.values() for s in p.get("secrets", [])})]
@@ -248,7 +287,7 @@ async def async_plan(hass: HomeAssistant, root: Path, ids: list[str], mapping: d
             "installed_version": (installed.get(pid) or {}).get("version"),
             "explicit": pid in ids, "device_ids": len(p.get("device_ids", [])),
         } for pid, p in pkgs.items()],
-        "integrations": integ_status, "entities": ents, "notify": notify, "secrets": secrets,
+        "integrations": integ_status, "entities": ents, "notify": notify, "secrets": secrets, "devices": devices,
         "conflicts": conflicts, "files": files, "packages_setup": setup,
         "blocking": [m for m in (
             None if setup["enabled"] or setup["editable"] else setup["reason"],

@@ -469,6 +469,37 @@ async def async_scan(hass: HomeAssistant, instance_name: str | None = None) -> d
     items += await hass.async_add_executor_job(_files_scan, config_dir, red)
     views, resources = await hass.async_add_executor_job(_lovelace, config_dir, red)
 
+    # ---- device triggers: registry ids (uuid) → readable entity_id, and device descriptions
+    from homeassistant.helpers import device_registry as dr
+
+    dev_reg = dr.async_get(hass)
+    uuid_rx = re.compile(r"^[0-9a-f]{32}$")
+
+    def fix_uuids(o: Any) -> Any:
+        if isinstance(o, dict):
+            out = {k: fix_uuids(v) for k, v in o.items()}
+            eid = out.get("entity_id")
+            if "device_id" in out and isinstance(eid, str) and uuid_rx.match(eid):
+                resolved = er.async_resolve_entity_id(reg, eid)
+                if resolved:
+                    out["entity_id"] = resolved
+            return out
+        if isinstance(o, list):
+            return [fix_uuids(v) for v in o]
+        return o
+
+    for it in items:
+        if it.get("config") is not None and not it.get("file"):
+            it["config"] = fix_uuids(it["config"])
+
+    devices: dict[str, dict] = {}
+    for dev in dev_reg.devices.values():
+        domains = sorted({ce.domain for ce_id in dev.config_entries if (ce := hass.config_entries.async_get_entry(ce_id))})
+        devices[dev.id] = {
+            "name": dev.name_by_user or dev.name or dev.id, "manufacturer": dev.manufacturer, "model": dev.model,
+            "integrations": domains,
+        }
+
     # ---- dedupe uids
     seen: dict[str, int] = {}
     for it in items:
@@ -495,7 +526,7 @@ async def async_scan(hass: HomeAssistant, instance_name: str | None = None) -> d
             "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "entity_count": len(hass.states.async_entity_ids()),
         },
-        "items": items, "entities": entities, "integrations": integrations,
+        "items": items, "entities": entities, "integrations": integrations, "devices": devices,
         "views": views, "resources": resources, "orphans": sorted(orphans),
         "redactions": red.hits, "generated_secrets": sorted(red.generated),
     }

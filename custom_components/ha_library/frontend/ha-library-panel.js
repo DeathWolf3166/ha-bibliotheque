@@ -241,7 +241,7 @@ class HaLibraryPanel extends HTMLElement {
         ${(p.notify_targets || []).length ? `<div class="sec"><span class="label">Notifications à rediriger</span><div class="row">${p.notify_targets.map((e) => `<span class="chip mono">${esc(e)}</span>`).join("")}</div></div>` : ""}
         ${(p.secrets || []).length ? `<div class="sec"><span class="label">Secrets demandés à l’installation</span><div class="row">${p.secrets.map((e) => `<span class="chip mono">${esc(e)}</span>`).join("")}</div></div>` : ""}
         ${(p.missing_on_source || []).length ? `<div class="note warn">Ces entités n’existaient déjà plus sur l’instance d’origine : ${p.missing_on_source.map(esc).join(", ")}</div>` : ""}
-        ${(p.device_ids || []).length ? `<div class="note">${p.device_ids.length} déclencheur(s) ou action(s) visent un appareil précis (device_id) : à refaire dans l’éditeur sur l’instance cible.</div>` : ""}
+        ${(p.devices || []).length ? `<div class="sec"><span class="label">Appareils précis utilisés (${p.devices.length})</span><div class="row">${p.devices.map((d) => `<span class="chip">${esc(d.name)}${d.model ? " · " + esc(d.model) : ""}</span>`).join("")}</div><div class="counts">À l’installation, vous choisissez l’appareil équivalent ; des appareils du même modèle sont proposés.</div></div>` : ((p.device_ids || []).length ? `<div class="note">${p.device_ids.length} référence(s) à un appareil précis (device_id) : la correspondance est proposée à l’installation.</div>` : "")}
         ${p.source ? `<div class="counts">Exporté depuis « ${esc(p.source.name)} » le ${fmtDate(p.source.exported_at)} · version ${esc(p.version)}</div>` : ""}`;
     } else if (this.s.sub === "yaml") {
       body = full ? `<div class="row" style="justify-content:flex-end"><button class="btn small" data-copy="pkg">Copier</button></div><pre>${this.hl(full.yaml)}</pre>` : `<div class="empty"><span class="spin"></span></div>`;
@@ -260,6 +260,7 @@ class HaLibraryPanel extends HTMLElement {
       <div class="ib">${i.description ? `<div class="counts">${esc(i.description)}</div>` : ""}
       ${(i.uses || []).length ? `<div class="counts"><span class="label">Utilise</span> ${i.uses.map(esc).join(", ")}</div>` : ""}
       ${(i.used_by || []).length ? `<div class="counts"><span class="label">Utilisé par</span> ${i.used_by.map(esc).join(", ")}</div>` : ""}
+      ${["automation", "script"].includes(i.kind) && !/use_blueprint/.test(yaml || "") ? `<div class="row" style="justify-content:flex-end"><button class="btn small" data-bp="${esc(i.uid)}">Créer un blueprint</button></div>` : ""}
       ${extra}<pre data-lazy="1">${this.hl(yaml || "")}</pre></div></details>`;
   }
 
@@ -399,6 +400,18 @@ class HaLibraryPanel extends HTMLElement {
   renderModal() {
     const host = this.shadowRoot.getElementById("modal");
     const m = this.s.modal;
+    if (this.s.bp && !this.s.confirm) {
+      const b = this.s.bp;
+      host.innerHTML = `<div class="modal"><div class="box" role="dialog" aria-modal="true"><div class="mh"><h2>Blueprint</h2><button class="btn small" data-act="bp-close">Fermer</button></div>
+        <div class="mb">${b.error ? `<div class="note bad">${esc(b.error)}</div>` : !b.yaml ? `<div class="empty"><span class="spin"></span></div>` : `
+          <div class="note">${b.inputs} champ(s) à choisir lors de l’utilisation : chaque entité, appareil et notification devient un réglage du blueprint. Utilisable sur n’importe quelle instance via Paramètres → Automatisations → Blueprints.</div>
+          ${b.unconverted.length ? `<div class="note warn">Restent en dur dans un template (à vérifier) : ${b.unconverted.map(esc).join(", ")}</div>` : ""}
+          ${b.saved ? `<div class="note ok">Enregistré dans <code>${esc(b.saved)}</code>. Il apparaît dans Paramètres → Automatisations et scènes → Blueprints.</div>` : ""}
+          <div class="form"><label>Nom du fichier<input type="text" id="bp-file" value="${esc(b.filename)}"></label></div>
+          <pre>${this.hl(b.yaml)}</pre>`}</div>
+        <div class="mf">${b.yaml ? `<button class="btn" data-act="bp-copy">Copier</button><button class="btn primary" data-act="bp-save" ${b.saved ? "disabled" : ""}>Enregistrer sur cette instance</button>` : ""}</div></div></div>`;
+      return;
+    }
     if (this.s.ghosts && !this.s.confirm) {
       const g = this.s.ghosts;
       host.innerHTML = `<div class="modal"><div class="box" role="dialog" aria-modal="true"><div class="mh"><h2>Entrées fantômes du registre</h2><button class="btn small" data-act="ghosts-close">Fermer</button></div>
@@ -440,6 +453,14 @@ class HaLibraryPanel extends HTMLElement {
       const notifRows = p.notify.map((n) => `<tr><td class="m">${esc(n.entity_id)}</td><td>${n.exists && !m.mapping[n.entity_id] ? '<span class="chip ok">présent</span>' : `<select data-map="${esc(n.entity_id)}"><option value="">— choisir —</option>${n.suggestions.map((s) => `<option value="${esc(s.entity_id)}" ${m.mapping[n.entity_id] === s.entity_id ? "selected" : ""}>${esc(s.entity_id)}</option>`).join("")}</select>`}</td></tr>`).join("");
       const secRows = p.secrets.filter((s) => !s.exists).map((s) => `<tr><td class="m">${esc(s.name)}</td><td><input type="password" autocomplete="off" data-secret="${esc(s.name)}" value="${esc(m.secrets[s.name] || "")}" placeholder="valeur écrite dans secrets.yaml"></td></tr>`).join("");
       const missingEnt = p.entities.filter((e) => !e.exists && !m.mapping[e.entity_id]).length;
+      const allDevs = Object.values(this._hass.devices || {}).map((x) => ({ id: x.id, name: x.name_by_user || x.name || x.id, model: x.model })).sort((a, b) => a.name.localeCompare(b.name));
+      const devRows = (p.devices || []).map((dv) => {
+        if (dv.exists && !m.mapping[dv.id]) return `<tr><td>${esc(dv.name)}<div class="counts">${esc([dv.manufacturer, dv.model].filter(Boolean).join(" · "))}</div></td><td><span class="chip ok">présent</span></td></tr>`;
+        const sugIds = new Set(dv.suggestions.map((x) => x.id));
+        const opt = (x) => `<option value="${esc(x.id)}" ${m.mapping[dv.id] === x.id ? "selected" : ""}>${esc(x.name)}${x.model ? " · " + esc(x.model) : ""}</option>`;
+        return `<tr><td>${esc(dv.name)}<div class="counts">${esc([dv.manufacturer, dv.model].filter(Boolean).join(" · ") || "modèle inconnu")}</div></td><td><select data-map="${esc(dv.id)}"><option value="">— choisir un appareil —</option>
+          ${dv.suggestions.length ? `<optgroup label="Suggestions">${dv.suggestions.map(opt).join("")}</optgroup>` : ""}<optgroup label="Tous les appareils">${allDevs.filter((x) => !sugIds.has(x.id)).map(opt).join("")}</optgroup></select></td></tr>`;
+      }).join("");
       body = `${m.error ? `<div class="note bad">${esc(m.error)}</div>` : ""}
         ${p.blocking.length ? `<div class="note bad">${p.blocking.map(esc).join("<br>")}</div>` : ""}
         ${(p.warnings || []).length ? `<div class="note warn">${p.warnings.map(esc).join("<br>")}</div>` : ""}
@@ -452,7 +473,8 @@ class HaLibraryPanel extends HTMLElement {
         ${p.conflicts.length ? `<div class="note warn"><b>Déjà présent sur cette instance</b><br>${p.conflicts.map((c) => `${esc(c.what)} : ${esc(c.reason)}`).join("<br>")}</div>` : ""}
         ${p.files.length ? `<div class="counts">Fichiers ajoutés : ${p.files.map((f) => esc(f.path) + (f.exists ? " (existe, conservé)" : "")).join(", ")}</div>` : ""}
         ${!p.packages_setup.enabled && p.packages_setup.editable ? `<label class="note warn" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="enable-pk" ${m.enable ? "checked" : ""}> <span>Activer les packages dans configuration.yaml (ajoute <code>packages: !include_dir_named packages</code> sous <code>homeassistant:</code>, avec une sauvegarde du fichier). Nécessaire pour installer.</span></label>` : ""}
-        ${p.packages.some((x) => x.device_ids) ? `<div class="note">Certaines automatisations visent un appareil précis (device_id) : refaites ces déclencheurs dans l’éditeur après l’installation.</div>` : ""}`;
+        ${devRows ? `<div class="sec"><span class="label">Appareils</span><div class="tw"><table><thead><tr><th style="width:42%">Dans le package</th><th>Sur cette instance</th></tr></thead><tbody>${devRows}</tbody></table></div>
+          <div class="counts">Un appareil laissé vide garde l’identifiant d’origine : le déclencheur restera inactif jusqu’à ce que vous le refassiez dans l’éditeur.</div></div>` : ""}`;
     }
     const canInstall = p && !m.result && !p.blocking.length && (p.packages_setup.enabled || m.enable) && !m.busy;
     host.innerHTML = `<div class="modal"><div class="box" role="dialog" aria-modal="true"><div class="mh"><h2>${m.result ? "Installation terminée" : "Installer depuis la bibliothèque"}</h2><button class="btn small" data-act="close">Fermer</button></div>
@@ -485,6 +507,12 @@ class HaLibraryPanel extends HTMLElement {
     if (d.copyView) { const r = await this.ws("view", { source_id: this.s.source, view_id: d.copyView }); return this.copy(r.yaml); }
     if (d.sug) { this.s.modal.mapping[d.sug] = d.val; this.renderModal(); return; }
     if (d.rmsrc) { return this.saveSettings({ remove_source: d.rmsrc }, "Dépôt retiré"); }
+    if (d.bp) {
+      this.s.bp = { yaml: "" }; this.renderModal();
+      const args = this.s.tab === "library" ? { item_uid: d.bp, source_id: this.s.source, package_id: this.s.sel } : { item_uid: d.bp };
+      try { this.s.bp = { ...(await this.ws("blueprint", args)), saved: null }; } catch (err) { this.s.bp = { error: err.message || String(err) }; }
+      return this.renderModal();
+    }
     if (d.addview) {
       const sel = this.shadowRoot.querySelector(`[data-dash-for="${CSS.escape(d.addview)}"]`);
       const dash = sel?.value; const title = this._dashes.find((x) => x.url_path === dash)?.title || dash;
@@ -518,6 +546,14 @@ class HaLibraryPanel extends HTMLElement {
       case "replan": return this.replan();
       case "do-install": return this.install();
       case "restart": return this.ask("Redémarrer Home Assistant ?", "L’interface sera indisponible pendant le redémarrage.", "Redémarrer", false, () => this._hass.callService("homeassistant", "restart"));
+      case "bp-close": this.s.bp = null; return this.renderModal();
+      case "bp-copy": return this.copy(this.s.bp.yaml);
+      case "bp-save": {
+        const b = this.s.bp; const filename = this.shadowRoot.getElementById("bp-file").value || b.filename;
+        try { const r = await this.ws("blueprint/save", { yaml: b.yaml, domain: b.domain, filename }); b.saved = r.path; }
+        catch (err) { this.err(err); }
+        return this.renderModal();
+      }
       case "ghosts": { const list = await this.ws("ghosts"); this.s.ghosts = { list, sel: new Set(list.map((x) => x.entity_id)) }; return this.renderModal(); }
       case "ghosts-close": this.s.ghosts = null; return this.renderModal();
       case "ghosts-all": this.s.ghosts.sel = new Set(this.s.ghosts.list.map((x) => x.entity_id)); return this.renderModal();

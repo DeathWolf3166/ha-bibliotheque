@@ -59,7 +59,7 @@ def read_library(root: Path) -> dict:
 
 def _normalize(p: dict) -> None:
     p.setdefault("requires", p.pop("requires_packages", []) if "requires_packages" in p else [])
-    for k in ("contexts", "integrations", "entities_to_provide", "notify_targets", "missing_on_source", "device_ids", "secrets", "files", "provides", "items"):
+    for k in ("contexts", "integrations", "entities_to_provide", "notify_targets", "missing_on_source", "device_ids", "devices", "secrets", "files", "provides", "items"):
         p.setdefault(k, [])
     p.setdefault("counts", {})
     p.setdefault("version", "")

@@ -36,6 +36,12 @@ jetons, mots de passe, numéros de téléphone et e-mails écrits en clair devie
 - Chaque manifeste liste les **intégrations requises**, les **entités à fournir** sur l’instance
   cible, les **cibles de notification** et les **références cassées** sur l’instance d’origine.
 
+### Blueprints
+Chaque automatisation ou script d’un package peut devenir un **blueprint** (bouton « Créer un blueprint » dans les éléments). Chaque entité, appareil et service de notification devient un champ à choisir ; dans les templates, l’entité passe par une variable. Le blueprint est validé puis enregistré dans `blueprints/<automation|script>/bibliotheque/`.
+
+### Appareils (device_id)
+Les déclencheurs, conditions et actions liés à un appareil sont exportés avec la description de l’appareil (nom, fabricant, modèle, intégration). À l’installation, l’appareil équivalent est proposé (même modèle d’abord), et l’identifiant est remplacé.
+
 ### Vues de dashboard
 Bibliothèque → Vues de dashboard → choisir un dashboard (mode interface) → **Ajouter à ce dashboard**. La vue est ajoutée à la fin avec vos correspondances d’entités, après une sauvegarde du dashboard dans `/config/ha_library/backups/`. Les cartes `custom:` et entités manquantes sont signalées.
 
@@ -84,7 +90,6 @@ Des règles (Réglages) forcent un regroupement, un titre, une description et de
 Exemple complet : [`examples/regles-maxime.yaml`](examples/regles-maxime.yaml).
 
 ## Limites connues
-- Les déclencheurs « appareil » (`device_id`) sont signalés mais restent à refaire sur l’instance cible.
 - Les entités créées par une intégration (Tuya, ZHA, Dreame…) ne s’installent pas : elles sont listées dans « Entités à fournir ».
 
 ## Développement

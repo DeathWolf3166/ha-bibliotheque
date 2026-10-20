@@ -12,7 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
-from . import analyzer, dashboards, installer, library, scanner, yamlutil
+from . import analyzer, blueprint, dashboards, installer, library, scanner, yamlutil
 from .const import (
     DOMAIN, PANEL_COMPONENT, PANEL_URL, STATIC_URL, STORAGE_KEY, STORAGE_VERSION, VERSION,
 )
@@ -395,8 +395,82 @@ async def ws_ghosts_remove(hass, d: Data, msg):
     return {"removed": dashboards.remove_ghosts(hass, msg["entity_ids"])}
 
 
+@_ws({
+    vol.Required("type"): "ha_library/blueprint", vol.Required("item_uid"): str,
+    vol.Optional("source_id"): str, vol.Optional("package_id"): str,
+})
+async def ws_blueprint(hass, d: Data, msg):
+    uid = msg["item_uid"]
+    if msg.get("source_id") and msg.get("package_id"):
+        pkg = await hass.async_add_executor_job(library.read_package, d.root(msg["source_id"]), msg["package_id"])
+        item = next((i for i in pkg.get("items_detail", []) if i["uid"] == uid), None)
+        devices = {x["id"]: x for x in pkg.get("devices", [])}
+        source = (pkg.get("source") or {}).get("name", "")
+    else:
+        if not d.analysis:
+            raise LibraryError("Lancez d’abord un scan.")
+        item = d.analysis["items"].get(uid)
+        devices = (d.snapshot or {}).get("devices") or {}
+        source = d.data["settings"]["instance_name"]
+    if not item or item.get("kind") not in ("automation", "script"):
+        raise LibraryError("Seules les automatisations et les scripts se convertissent en blueprint.")
+    config = yamlutil.load(item["yaml"]) or {}
+    if "use_blueprint" in config:
+        raise LibraryError("Cet élément utilise déjà un blueprint.")
+    res = blueprint.to_blueprint(config, item["kind"], item.get("name"), item.get("description") or "", devices)
+    res["domain"] = item["kind"]
+    res["filename"] = yamlutil.slugify(item.get("name") or uid) + ".yaml"
+    res["source"] = source
+    res.pop("blueprint")
+    return res
+
+
+@_ws({
+    vol.Required("type"): "ha_library/blueprint/save", vol.Required("yaml"): str,
+    vol.Required("domain"): vol.In(["automation", "script"]), vol.Required("filename"): str,
+    vol.Optional("overwrite", default=False): bool,
+})
+async def ws_blueprint_save(hass, d: Data, msg):
+    from homeassistant.components.blueprint import models as bp_models  # validates like the HA editor
+
+    data = yamlutil.load(msg["yaml"])
+    try:
+        try:
+            from homeassistant.components.blueprint.schemas import BLUEPRINT_SCHEMA
+
+            bp_models.Blueprint(_input_tags(data), expected_domain=msg["domain"], schema=BLUEPRINT_SCHEMA)
+        except TypeError:  # HA versions without the schema argument
+            bp_models.Blueprint(_input_tags(data), expected_domain=msg["domain"])
+    except Exception as err:  # noqa: BLE001
+        raise LibraryError(f"Blueprint invalide : {err}") from err
+    name = yamlutil.slugify(msg["filename"].removesuffix(".yaml")) + ".yaml"
+    dest = Path(hass.config.path("blueprints", msg["domain"], "bibliotheque", name))
+    if dest.exists() and not msg["overwrite"]:
+        raise LibraryError(f"Un blueprint « {name} » existe déjà dans blueprints/{msg['domain']}/bibliotheque/.")
+
+    def write() -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(msg["yaml"], encoding="utf-8")
+
+    await hass.async_add_executor_job(write)
+    return {"path": dest.relative_to(Path(hass.config.config_dir)).as_posix()}
+
+
+def _input_tags(o):
+    """Convert TaggedValue('!input') into HA's Input objects for validation."""
+    from homeassistant.util.yaml import Input
+
+    if isinstance(o, yamlutil.TaggedValue) and o.tag == "!input":
+        return Input(str(o.value))
+    if isinstance(o, dict):
+        return {k: _input_tags(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_input_tags(v) for v in o]
+    return o
+
+
 COMMANDS = [
     ws_settings_get, ws_settings_set, ws_scan, ws_scan_result, ws_override, ws_export, ws_publish,
     ws_refresh, ws_library, ws_package, ws_view, ws_lib_remove, ws_plan, ws_install, ws_uninstall,
-    ws_dashboards, ws_view_install, ws_ghosts, ws_ghosts_remove,
+    ws_dashboards, ws_view_install, ws_ghosts, ws_ghosts_remove, ws_blueprint, ws_blueprint_save,
 ]
