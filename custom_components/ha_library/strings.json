@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bibliothèque HA",
+        "description": "Adds the Library panel to scan this instance, share its automations and install packages from your library.",
+        "data": {"instance_name": "Name of this instance (shown in the library)"}
+      }
+    },
+    "abort": {"single_instance_allowed": "Already configured."}
+  }
+}

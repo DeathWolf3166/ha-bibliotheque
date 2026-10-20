@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bibliothèque HA",
+        "description": "Ajoute le panneau « Bibliothèque » pour scanner cette instance, partager ses automatisations et installer des packages depuis votre bibliothèque.",
+        "data": {"instance_name": "Nom de cette instance (affiché dans la bibliothèque)"}
+      }
+    },
+    "abort": {"single_instance_allowed": "Bibliothèque HA est déjà configurée."}
+  }
+}

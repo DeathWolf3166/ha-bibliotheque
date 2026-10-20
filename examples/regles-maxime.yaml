@@ -1,0 +1,25 @@
+# Règles de regroupement pour l'instance « Maison » de Maxime.
+# À coller dans Bibliothèque → Réglages → Règles de regroupement.
+strip_prefixes: [Amira]
+groups:
+  - {id: animal-chat, title: "Chat : litière et nourriture", contexts: [particulier], match: "litiere_chaque|nourrir?e?_chat"}
+  - {id: animal-suivi-gps-ia, title: "Suivi chien : sorties, GPS, LED collier, IA caméra", description: "Sorties/retours d’un chien (GPS + caméra + verdict IA), chrono, rappels, LED du collier la nuit.", contexts: [particulier], match: charlotte}
+  - {id: robot-aspirateur-dreame, title: "Robot aspirateur : nettoyage par zones et vidange intelligente", contexts: [particulier, hotel, bureau], match: "dreame|lavage_|nettoyage_|vacuubot|robot|btn4_double_long"}
+  - {id: avions-fr24, title: "Avions FR24 : popup et pause TV", contexts: [particulier], match: fr24}
+  - {id: securite-prises, title: "Sécurité : remise en marche des prises critiques", contexts: [particulier, hotel, logistique, bureau], match: securite_repasser}
+  - {id: securite-reprise-courant, title: "Sécurité : arrêt chauffage et eau au retour du courant", contexts: [particulier, hotel, logistique, bureau], match: arret_de_securite}
+  - {id: eclairage-interrupteurs, title: "Éclairage : interrupteurs sans fil et lumière jour/nuit", contexts: [particulier, hotel, logistique, bureau], match: "interrupteur_lumiere|lumiere_toilettes|lumiere_chambre_principale_interrupteur"}
+  - {id: chauffage-lit, title: "Chauffage de lit : minuteurs sécurisés", contexts: [particulier, hotel], match: chauffage_lit}
+  - {id: chauffage-ir, title: "Chauffage : commandes infrarouge", contexts: [particulier, hotel, bureau], match: chauffage_sdb}
+  - {id: climatisation, title: "Climatisation par pièce", contexts: [particulier, hotel, logistique, bureau], match: climatisation}
+  - {id: eau-arrosage-bassin, title: "Eau : arrosage, bassin et électrovanne", contexts: [particulier, hotel], match: "bassin|electrovanne|arrivee_eau|arrosage"}
+  - {id: energie-hc-hp, title: "Énergie : heures creuses / heures pleines", contexts: [particulier, hotel, logistique, bureau], match: "hc_hp|heures_creuses|heures_pleines|trottinette"}
+  - {id: entree-porte-sonnette, title: "Entrée : sonnette, porte, serrure, caméra", contexts: [particulier, hotel, logistique, bureau], match: "sonnette|porte|serrure"}
+  - {id: multimedia-salon, title: "Multimédia : Apple TV, barre de son, purificateur", contexts: [particulier, hotel], match: "apple_tv|appletv|barre_de_son"}
+  - {id: tablettes-murales, title: "Tablettes murales : écran selon présence et sommeil", contexts: [particulier, hotel, logistique, bureau], match: "tablette|browsermod"}
+  - {id: lits-presence, title: "Capteurs de lit : sauvegarde et restauration", contexts: [particulier, hotel], match: capteurs_lits}
+  - {id: reveils, title: "Réveils", contexts: [particulier, hotel], match: "reveil|nouvelle_automatisation"}
+  - {id: electromenager-fin-cycle, title: "Électroménager : fin de cycle", contexts: [particulier, hotel], match: machine_a_laver}
+  - {id: assistant-telephone, title: "Assistant téléphonique IA (Camille)", contexts: [particulier, hotel, logistique, bureau], match: assistant_telephone}
+  - {id: notifications-echeances, title: "Notifications à échéances multiples", contexts: [particulier, hotel, logistique, bureau], match: zenith}
+  - {id: cameras, title: "Caméras : PTZ local", contexts: [particulier, hotel, logistique, bureau], match: imou}
