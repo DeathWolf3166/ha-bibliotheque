@@ -88,3 +88,21 @@ async def test_panel_registered(hass: HomeAssistant, hass_client, tmp_path) -> N
     resp = await client.get("/ha_library_static/ha-library-panel.js")
     assert resp.status == 200
     assert "customElements.define" in await resp.text()
+
+
+async def test_fetch_reads_whole_stream(hass: HomeAssistant, hass_ws_client, aioclient_mock, tmp_path) -> None:
+    """A large archive arrives in several chunks: all of them must be read."""
+    await _setup(hass, tmp_path)
+    ws = await hass_ws_client(hass)
+    await ws.send_json({"id": 1, "type": "ha_library/settings/set", "source": {"repo": "maxime/gros", "token": "github_pat_x"}})
+    assert (await ws.receive_json())["success"]
+    import os
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("r-abc/library.json", json.dumps({"format": 1, "packages": [], "views": [], "resources": [], "instances": []}))
+        z.writestr("r-abc/views/gros.yaml", os.urandom(3 * 1024 * 1024).hex())
+    aioclient_mock.get("https://api.github.com/repos/maxime/gros/zipball/main", content=buf.getvalue())
+    await ws.send_json({"id": 2, "type": "ha_library/source/refresh", "source_id": "gh:maxime/gros"})
+    res = await ws.receive_json()
+    assert res["success"], res
+    assert res["result"]["files"] == 2

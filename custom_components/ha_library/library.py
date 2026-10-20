@@ -208,11 +208,19 @@ async def async_fetch_github(hass: HomeAssistant, source: dict) -> dict:
                 raise LibraryError(f"Accès refusé au dépôt {repo} : vérifiez le jeton GitHub.")
             if resp.status != 200:
                 raise LibraryError(f"GitHub a répondu {resp.status} pour {repo}.")
-            data = await resp.content.read(MAX_ZIP + 1)
+            chunks, size = [], 0
+            async for chunk in resp.content.iter_chunked(256 * 1024):
+                size += len(chunk)
+                if size > MAX_ZIP:
+                    break
+                chunks.append(chunk)
+            data = b"".join(chunks)
     except ClientError as err:
         raise LibraryError(f"Téléchargement de {repo} impossible : {err}") from err
-    if len(data) > MAX_ZIP:
+    if size > MAX_ZIP:
         raise LibraryError("Dépôt trop volumineux (plus de 60 Mo).")
+    if not zipfile.is_zipfile(io.BytesIO(data)):
+        raise LibraryError(f"GitHub n’a pas renvoyé d’archive pour {repo} ({len(data)} octets reçus). Réessayez dans un instant.")
 
     def extract() -> int:
         safe = repo.replace("/", "__")
