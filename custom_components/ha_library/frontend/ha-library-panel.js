@@ -369,8 +369,8 @@ class HaLibraryPanel extends HTMLElement {
         <p class="counts" style="margin:0 0 10px">Un dépôt GitHub sert de bibliothèque centrale : chaque instance l’ajoute comme source pour installer, et une instance peut y publier ses exports. Pour un dépôt privé ou pour publier, créez un jeton « fine-grained » avec l’accès <b>Contents: Read and write</b> sur ce seul dépôt.</p>
         ${gh.length ? `<div class="tw"><table><thead><tr><th>Dépôt</th><th>Branche</th><th>Dossier</th><th>Jeton</th><th>Publication</th><th></th></tr></thead><tbody>${gh.map((g) => `<tr><td class="m">${esc(g.repo)}</td><td class="m">${esc(g.branch)}</td><td class="m">${esc(g.path || "/")}</td><td>${g.has_token ? '<span class="chip ok">enregistré</span>' : '<span class="chip">aucun</span>'}</td>
           <td><input type="radio" name="pub" data-pub="${esc(g.id)}" ${st.publish_to === g.id ? "checked" : ""} aria-label="Publier vers ${esc(g.repo)}"></td><td><button class="btn small danger" data-rmsrc="${esc(g.id)}">Retirer</button></td></tr>`).join("")}</tbody></table></div>` : ""}
-        <div class="form" style="margin-top:10px"><label>Dépôt (propriétaire/nom)<input type="text" id="gh-repo" placeholder="maxime/bibliotheque-ha"></label><label>Branche<input type="text" id="gh-branch" value="main"></label>
-          <label>Dossier dans le dépôt (optionnel)<input type="text" id="gh-path" placeholder="ex. library"></label><label>Jeton GitHub (optionnel)<input type="password" id="gh-token" autocomplete="off"></label></div>
+        <div class="form" style="margin-top:10px"><label>Dépôt (propriétaire/nom)<input type="text" id="gh-repo" name="lib-repo" autocomplete="off" placeholder="proprietaire/bibliotheque-ha" value="${esc(gh[0]?.repo || "")}"></label><label>Branche<input type="text" id="gh-branch" name="lib-branch" autocomplete="off" value="${esc(gh[0]?.branch || "main")}"></label>
+          <label>Dossier dans le dépôt (optionnel)<input type="text" id="gh-path" name="lib-path" autocomplete="off" placeholder="ex. library" value="${esc(gh[0]?.path || "")}"></label><label>Jeton GitHub (commence par github_pat_)<input type="password" id="gh-token" name="lib-gh-token" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="github_pat_…"></label></div>
         <div class="row" style="margin-top:10px"><button class="btn primary small" data-act="add-gh">Ajouter / mettre à jour</button>${st.publish_to ? `<button class="btn small" data-act="nopub">Ne plus publier</button>` : ""}</div></section>
       <section class="card"><h2 style="margin:0 0 6px;font-size:17px;font-weight:500">Règles de regroupement</h2>
         <p class="counts" style="margin:0 0 10px">Sans règle, les packages sont formés par catégorie HA, puis par préfixe commun des noms (« Dreame • … »), puis par éléments qui partagent des helpers. Les règles permettent de forcer un regroupement, un titre et des contextes.</p>
@@ -539,7 +539,9 @@ class HaLibraryPanel extends HTMLElement {
       case "nopub": return this.saveSettings({ publish_to: null }, "Publication désactivée");
       case "add-gh": {
         const r = this.shadowRoot;
-        await this.saveSettings({ source: { repo: r.getElementById("gh-repo").value, branch: r.getElementById("gh-branch").value, path: r.getElementById("gh-path").value, token: r.getElementById("gh-token").value } }, "Dépôt enregistré");
+        const token = r.getElementById("gh-token").value.trim();
+        if (token && !/^(github_pat_|ghp_|gho_|ghs_)/.test(token)) { this.toast("Ce jeton ne ressemble pas à un jeton GitHub (il doit commencer par github_pat_). Si le navigateur a rempli le champ tout seul, videz-le et collez le jeton.", 8000); return; }
+        await this.saveSettings({ source: { repo: r.getElementById("gh-repo").value, branch: r.getElementById("gh-branch").value, path: r.getElementById("gh-path").value, token } }, "Dépôt enregistré");
         return;
       }
       case "close": this.s.modal = null; this.renderModal(); return this.loadLibrary().then(() => this.refreshSettings());

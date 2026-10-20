@@ -209,7 +209,10 @@ async def ws_settings_set(hass, d: Data, msg):
         new = {"id": sid, "type": "github", "repo": repo, "branch": (src.get("branch") or "main").strip(),
                "path": (src.get("path") or "").strip("/"), "name": src.get("name") or repo}
         if src.get("token"):
-            new["token"] = src["token"].strip()
+            tok = src["token"].strip()
+            if not tok.startswith(("github_pat_", "ghp_", "gho_", "ghs_")):
+                raise LibraryError("Ce jeton ne ressemble pas à un jeton GitHub (il commence normalement par github_pat_).")
+            new["token"] = tok
         elif existing and existing.get("token"):
             new["token"] = existing["token"]
         if existing:
