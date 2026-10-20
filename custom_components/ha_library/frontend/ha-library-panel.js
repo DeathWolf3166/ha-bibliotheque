@@ -431,6 +431,7 @@ class HaLibraryPanel extends HTMLElement {
       const missingEnt = p.entities.filter((e) => !e.exists && !m.mapping[e.entity_id]).length;
       body = `${m.error ? `<div class="note bad">${esc(m.error)}</div>` : ""}
         ${p.blocking.length ? `<div class="note bad">${p.blocking.map(esc).join("<br>")}</div>` : ""}
+        ${(p.warnings || []).length ? `<div class="note warn">${p.warnings.map(esc).join("<br>")}</div>` : ""}
         <div class="sec"><span class="label">Ordre d’installation</span><div class="row">${order}</div></div>
         <div class="sec"><span class="label">Intégrations</span><div class="row">${Object.entries(p.integrations).map(([k, v]) => `<span class="chip ${st[v]}">${esc(k)} · ${v}</span>`).join("") || '<span class="counts">Aucune en dehors du cœur de HA</span>'}</div></div>
         ${p.entities.length ? `<div class="sec"><span class="label">Correspondance des entités (${missingEnt} à choisir)</span><div class="tw"><table><thead><tr><th style="width:42%">Dans le package</th><th>Sur cette instance</th></tr></thead><tbody>${entRows}</tbody></table></div>${datalists}

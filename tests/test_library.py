@@ -79,7 +79,7 @@ AUTOMATIONS += """
   triggers: [{trigger: time, at: "21:04:00"}]
   actions:
     - action: notify.sms
-      data: {message: Coucou, target: "+33 6 12 34 56 78"}
+      data: {message: Coucou, target: "+33 6 12 34 56 78", data: {actions: [{action: android.intent, title: Ouvrir}]}}
 """
 SCRIPTS = """
 eteindre_couloir:
@@ -164,6 +164,7 @@ async def test_scan_and_export(hass: HomeAssistant, hass_ws_client, tmp_path, li
     assert any(i["kind"] == "file" for i in r["items"].values())
     sms = next(p for p in r["packages"] if "automation:1788125445557" in p["items"])
     assert "id: '1788125445557'" in sms["yaml"] and "21:04:00" in sms["yaml"]
+    assert "android" not in sms["integrations"]
     assert "+33 6 12 34 56 78" not in sms["yaml"] and "!secret" in sms["yaml"]
     # the YAML package parses and contains every section
     body = yamlutil.load(ecl["yaml"])

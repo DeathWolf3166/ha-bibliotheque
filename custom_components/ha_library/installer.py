@@ -252,7 +252,10 @@ async def async_plan(hass: HomeAssistant, root: Path, ids: list[str], mapping: d
         "conflicts": conflicts, "files": files, "packages_setup": setup,
         "blocking": [m for m in (
             None if setup["enabled"] or setup["editable"] else setup["reason"],
-            ("Intégrations absentes : " + ", ".join(k for k, v in integ_status.items() if v == "absente")) if any(v == "absente" for v in integ_status.values()) else None,
+        ) if m],
+        "warnings": [m for m in (
+            ("Intégrations absentes de cette instance : " + ", ".join(k for k, v in integ_status.items() if v == "absente")
+             + ". Les automatisations qui en dépendent ne fonctionneront qu’une fois installées.") if any(v == "absente" for v in integ_status.values()) else None,
         ) if m],
     }
 
@@ -262,9 +265,6 @@ async def async_install(hass: HomeAssistant, root: Path, ids: list[str], mapping
                         installed: dict, enable: bool = False, force_update: bool = False) -> dict:
     config_dir = Path(hass.config.config_dir)
     plan = await async_plan(hass, root, ids, mapping, installed)
-    absent = [k for k, v in plan["integrations"].items() if v == "absente"]
-    if absent:
-        raise LibraryError("Installez d’abord ces intégrations (HACS ou Paramètres → Intégrations) : " + ", ".join(absent))
     missing_secrets = [s["name"] for s in plan["secrets"] if not s["exists"] and not (secret_values or {}).get(s["name"])]
     if missing_secrets:
         raise LibraryError("Valeurs manquantes pour les secrets : " + ", ".join(missing_secrets))

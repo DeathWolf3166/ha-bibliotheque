@@ -66,11 +66,13 @@ def references(config: Any) -> dict[str, set[str]]:
     devices: set[str] = set()
     blueprints: set[str] = set()
 
-    def walk(o: Any, key: str | None = None) -> None:
+    PAYLOAD_KEYS = {"data", "event_data", "variables", "data_template", "payload"}
+
+    def walk(o: Any, key: str | None = None, payload: bool = False) -> None:
         if isinstance(o, SecretRef):
             return
         if isinstance(o, yamlutil.TaggedValue):
-            walk(o.value, key)
+            walk(o.value, key, payload)
             return
         if isinstance(o, dict):
             if "use_blueprint" in o and isinstance(o["use_blueprint"], dict):
@@ -78,15 +80,16 @@ def references(config: Any) -> dict[str, set[str]]:
                 if path:
                     blueprints.add(str(path))
             for k, v in o.items():
-                walk(v, str(k))
+                walk(v, str(k), payload or str(k) in PAYLOAD_KEYS)
             return
         if isinstance(o, list):
             for v in o:
-                walk(v, key)
+                walk(v, key, payload)
             return
         if not isinstance(o, str):
             return
-        if key in SERVICE_KEYS and SERVICE_RX.match(o):
+        # "action:" inside a notification payload (Android intents, actionable buttons) is not a service call
+        if key in SERVICE_KEYS and not payload and SERVICE_RX.match(o):
             services.add(o)
             return
         if key == "device_id":
