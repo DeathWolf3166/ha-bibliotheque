@@ -1,7 +1,7 @@
 """Constants for Bibliothèque HA."""
 DOMAIN = "ha_library"
 NAME = "Bibliothèque HA"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 PANEL_URL = "bibliotheque"
 PANEL_COMPONENT = "ha-library-panel"
 STATIC_URL = "/ha_library_static"

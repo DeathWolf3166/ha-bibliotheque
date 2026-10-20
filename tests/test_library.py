@@ -73,6 +73,14 @@ AUTOMATIONS = """
     - action: notify.mobile_app_iphone_de_test
       data: {message: Fuite}
 """
+AUTOMATIONS += """
+- id: '1788125445557'
+  alias: SMS gardien
+  triggers: [{trigger: time, at: "21:04:00"}]
+  actions:
+    - action: notify.sms
+      data: {message: Coucou, target: "+33 6 12 34 56 78"}
+"""
 SCRIPTS = """
 eteindre_couloir:
   alias: Éteindre couloir
@@ -152,8 +160,11 @@ async def test_scan_and_export(hass: HomeAssistant, hass_ws_client, tmp_path, li
     assert "!secret hook_url_texte" in ecl["yaml"]
     alerte = next(p for p in r["packages"] if "automation:1003" in p["items"])
     assert "!secret" in alerte["yaml"] and "abcdef0123456789abcdef" not in alerte["yaml"]
-    assert alerte["notify_targets"] == ["notify.mobile_app_iphone_de_test"]
+    assert "notify.mobile_app_iphone_de_test" in alerte["notify_targets"]
     assert any(i["kind"] == "file" for i in r["items"].values())
+    sms = next(p for p in r["packages"] if "automation:1788125445557" in p["items"])
+    assert "id: '1788125445557'" in sms["yaml"] and "21:04:00" in sms["yaml"]
+    assert "+33 6 12 34 56 78" not in sms["yaml"] and "!secret" in sms["yaml"]
     # the YAML package parses and contains every section
     body = yamlutil.load(ecl["yaml"])
     assert set(body) >= {"automation", "script", "template", "input_boolean", "input_number", "shell_command"}

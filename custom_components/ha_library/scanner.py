@@ -44,7 +44,8 @@ KEYED_DOMAINS = {"utility_meter", "shell_command", "rest_command", "group", "ale
 LIST_DOMAINS = {"command_line", "rest", "scrape", "sql"}
 SKIP_PLATFORMS = {"template"}  # legacy template handled per entity
 
-PHONE_RX = re.compile(r"^\+?\d[\d .]{8,}\d$")
+PHONE_RX = re.compile(r"^(?:\+\d{1,3}[ .]?\d(?:[ .]?\d{2}){4}|\+\d{9,14}|0[1-9](?:[ .]?\d{2}){4})$")
+NEVER_REDACT = {"id", "unique_id", "alias", "name", "friendly_name", "entity_id", "device_id", "platform", "at", "offset", "for", "icon", "mode", "trigger", "action", "service", "condition", "state", "to", "from"}
 EMAIL_RX = re.compile(r"^[\w.+-]+@[\w-]+\.[\w.]+$")
 SECRET_KEYS = {"webhook_id", "api_key", "token", "access_token", "password", "secret", "auth_token", "client_secret", "username"}
 
@@ -79,6 +80,8 @@ class _Redactor:
             return {k: self(v, where, str(k)) for k, v in obj.items()}
         if isinstance(obj, list):
             return [self(v, where, key) for v in obj]
+        if key in NEVER_REDACT:
+            return obj
         if isinstance(obj, (str, int)) and not isinstance(obj, bool):
             s = str(obj)
             if s in self.by_value:
@@ -92,7 +95,7 @@ class _Redactor:
                 if key in SECRET_KEYS and s and "{{" not in s:
                     self.hits.append({"where": where, "secret": key})
                     return self._gen(f"{where.split('.')[-1]}_{key}")
-                if PHONE_RX.match(s.strip()) or EMAIL_RX.match(s.strip()):
+                if (PHONE_RX.match(s.strip()) and not s.strip().isdigit() or s.strip().startswith("0") and PHONE_RX.match(s.strip())) or EMAIL_RX.match(s.strip()):
                     self.hits.append({"where": where, "secret": "contact"})
                     return self._gen(f"{where.split('.')[-1]}_{'telephone' if PHONE_RX.match(s.strip()) else 'email'}")
         return obj
