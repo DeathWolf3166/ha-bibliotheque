@@ -512,7 +512,7 @@ async def async_scan(hass: HomeAssistant, instance_name: str | None = None) -> d
 
     orphans = []
     for e in reg.entities.values():
-        if e.domain in ("automation", "script"):
+        if e.domain in ("automation", "script") and e.disabled_by is None:
             st = hass.states.get(e.entity_id)
             if st is None or st.attributes.get("restored"):
                 orphans.append(e.entity_id)

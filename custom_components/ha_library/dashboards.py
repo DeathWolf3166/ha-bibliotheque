@@ -111,6 +111,8 @@ def ghost_entries(hass: HomeAssistant) -> list[dict]:
     for e in reg.entities.values():
         if e.domain not in ("automation", "script", "scene"):
             continue
+        if e.disabled_by is not None:  # deliberately disabled by the user: never a ghost
+            continue
         st = hass.states.get(e.entity_id)
         if st is not None and not st.attributes.get("restored"):
             continue

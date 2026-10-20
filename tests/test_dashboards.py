@@ -58,6 +58,7 @@ async def test_ghosts(hass: HomeAssistant, hass_ws_client, tmp_path) -> None:
     reg.async_get_or_create("automation", "automation", "old1", suggested_object_id="ancienne")
     reg.async_get_or_create("automation", "automation", "live1", suggested_object_id="vivante")
     hass.states.async_set("automation.vivante", "on")
+    reg.async_get_or_create("automation", "automation", "off1", suggested_object_id="desactivee", disabled_by=er.RegistryEntryDisabler.USER)
     ws = await hass_ws_client(hass)
     await ws.send_json({"id": 1, "type": "ha_library/ghosts"})
     res = await ws.receive_json()
