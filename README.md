@@ -12,6 +12,8 @@ instance** en gérant les dépendances.
 | **Cette instance** | Scanne l’instance, propose des packages, permet de les renommer, de choisir les contextes (particulier, hôtel, site logistique, bureau), de déplacer un élément d’un package à un autre, puis d’exporter et de publier. |
 | **Bibliothèque** | Parcourt une source (locale ou GitHub), filtre par contexte, intégration ou recherche, montre le YAML, les dépendances et les vues de dashboard, et installe un ou plusieurs packages. |
 | **Installés** | Liste ce qui a été installé depuis la bibliothèque, signale les mises à jour, désinstalle proprement. |
+
+Dans **Cette instance**, le bouton « Nettoyer… » retire du registre les automatisations, scripts et scènes fantômes (supprimés mais toujours listés comme indisponibles).
 | **Réglages** | Nom de l’instance, dépôts GitHub (lecture et publication), règles de regroupement. |
 
 ### Ce que le scan lit
@@ -33,6 +35,9 @@ jetons, mots de passe, numéros de téléphone et e-mails écrits en clair devie
   (ce qui casserait la fusion des packages de HA).
 - Chaque manifeste liste les **intégrations requises**, les **entités à fournir** sur l’instance
   cible, les **cibles de notification** et les **références cassées** sur l’instance d’origine.
+
+### Vues de dashboard
+Bibliothèque → Vues de dashboard → choisir un dashboard (mode interface) → **Ajouter à ce dashboard**. La vue est ajoutée à la fin avec vos correspondances d’entités, après une sauvegarde du dashboard dans `/config/ha_library/backups/`. Les cartes `custom:` et entités manquantes sont signalées.
 
 ### Installation d’un package
 1. Plan : intégrations (chargée / à configurer / absente), correspondance des entités avec
@@ -80,7 +85,6 @@ Exemple complet : [`examples/regles-maxime.yaml`](examples/regles-maxime.yaml).
 
 ## Limites connues
 - Les déclencheurs « appareil » (`device_id`) sont signalés mais restent à refaire sur l’instance cible.
-- Les vues de dashboard se copient en YAML ; elles ne sont pas encore ajoutées automatiquement.
 - Les entités créées par une intégration (Tuya, ZHA, Dreame…) ne s’installent pas : elles sont listées dans « Entités à fournir ».
 
 ## Développement

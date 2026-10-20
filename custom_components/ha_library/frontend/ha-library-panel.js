@@ -276,10 +276,12 @@ class HaLibraryPanel extends HTMLElement {
     const views = this.s.lib?.views || [];
     if (!views.length) return `<div class="card empty">Aucune vue de dashboard dans cette bibliothèque.</div>`;
     const res = new Set((this._resources || []).map((r) => r.url));
-    return `<div class="note" style="margin-bottom:10px">Pour réutiliser une vue : ouvrez un dashboard → Modifier → ⋮ Éditeur de configuration brute, puis collez le YAML sous <code>views:</code>. Les cartes <code>custom:</code> doivent être installées via HACS.</div>
+    const dashes = (this._dashes || []).filter((x) => x.mode === "storage");
+    const dashOpts = dashes.map((x) => `<option value="${esc(x.url_path)}">${esc(x.title)}</option>`).join("");
+    return `<div class="note" style="margin-bottom:10px">« Ajouter » place la vue à la fin du dashboard choisi, avec vos correspondances d’entités ; une sauvegarde du dashboard est faite avant. Les cartes <code>custom:</code> manquantes s’installent via HACS.</div>
       <div class="list">${views.map((v) => `<details class="it" data-view="${esc(v.id)}"><summary><span class="kind">vue</span><span class="t">${esc(v.title)}</span><span class="counts">${esc(v.dashboard)} · ${v.entities} entités · ${(v.size / 1024).toFixed(1)} Ko</span></summary>
         <div class="ib"><div class="row">${(v.custom_cards || []).map((c) => `<span class="chip mono">custom:${esc(c)}</span>`).join("") || '<span class="counts">Cartes natives uniquement</span>'}</div>
-        <div class="row" style="justify-content:flex-end"><button class="btn small" data-copy-view="${esc(v.id)}">Copier le YAML</button></div><pre data-view-yaml="${esc(v.id)}">Ouverture…</pre></div></details>`).join("")}</div>`;
+        <div class="row" style="justify-content:flex-end">${dashOpts ? `<select data-dash-for="${esc(v.id)}" aria-label="Dashboard cible">${dashOpts}</select><button class="btn small primary" data-addview="${esc(v.id)}">Ajouter à ce dashboard</button>` : ""}<button class="btn small" data-copy-view="${esc(v.id)}">Copier le YAML</button></div><pre data-view-yaml="${esc(v.id)}">Ouverture…</pre></div></details>`).join("")}</div>`;
   }
 
   // ------------------------------------------------------------ instance tab
@@ -299,7 +301,7 @@ class HaLibraryPanel extends HTMLElement {
     const kinds = Object.values(sc.items || {}).reduce((a, i) => ((a[i.kind] = (a[i.kind] || 0) + 1), a), {});
     const summary = `<div class="card" style="margin-bottom:12px"><div class="stats">${stat(pk.length, "packages")}${stat(kinds.automation || 0, "automatisations")}${stat(kinds.script || 0, "scripts")}${stat(kinds.scene || 0, "scènes")}${stat(kinds.helper || 0, "helpers")}${stat(kinds.template || 0, "templates")}${stat((kinds.yaml || 0) + (kinds.file || 0), "yaml & fichiers")}${stat((sc.views || []).length, "vues")}</div>
       <div class="row" style="margin-top:10px">${sc.redactions ? `<span class="chip warn">${sc.redactions} valeur${sc.redactions > 1 ? "s" : ""} sensible${sc.redactions > 1 ? "s" : ""} remplacée${sc.redactions > 1 ? "s" : ""} par !secret</span>` : '<span class="chip ok">Aucune valeur sensible détectée</span>'}
-      ${(sc.orphans || []).length ? `<span class="chip bad" title="${esc(sc.orphans.join(", "))}">${sc.orphans.length} automatisations/scripts fantômes dans le registre</span>` : ""}</div></div>`;
+      ${(sc.orphans || []).length ? `<span class="chip bad" title="${esc(sc.orphans.join(", "))}">${sc.orphans.length} automatisations/scripts fantômes dans le registre</span><button class="btn small" data-act="ghosts">Nettoyer…</button>` : ""}</div></div>`;
     if (!this.s.scanSel || !pk.find((p) => p.id === this.s.scanSel)) this.s.scanSel = pk[0]?.id;
     const ov = sc.overrides?.packages || {};
     const cards = pk.map((p) => `<div class="card pkg" data-spkg="${esc(p.id)}" aria-current="${p.id === this.s.scanSel}" tabindex="0">
@@ -397,6 +399,15 @@ class HaLibraryPanel extends HTMLElement {
   renderModal() {
     const host = this.shadowRoot.getElementById("modal");
     const m = this.s.modal;
+    if (this.s.ghosts && !this.s.confirm) {
+      const g = this.s.ghosts;
+      host.innerHTML = `<div class="modal"><div class="box" role="dialog" aria-modal="true"><div class="mh"><h2>Entrées fantômes du registre</h2><button class="btn small" data-act="ghosts-close">Fermer</button></div>
+        <div class="mb"><div class="note">Ces automatisations, scripts et scènes n’existent plus dans la configuration mais restent dans le registre des entités (état « indisponible »). Les retirer ne supprime aucun code. Si l’un d’eux est seulement en erreur (YAML invalide), corrigez-le plutôt : il reviendrait avec un nouvel identifiant d’entité.</div>
+        <div class="row"><button class="btn small" data-act="ghosts-all">Tout cocher</button><button class="btn small" data-act="ghosts-none">Tout décocher</button><span class="counts">${g.sel.size} / ${g.list.length} sélectionnée(s)</span></div>
+        <div class="tw"><table><tbody>${g.list.map((x) => `<tr><td style="width:28px"><input type="checkbox" data-ghost="${esc(x.entity_id)}" ${g.sel.has(x.entity_id) ? "checked" : ""} aria-label="Retirer ${esc(x.entity_id)}"></td><td>${esc(x.name)}</td><td class="m">${esc(x.entity_id)}</td></tr>`).join("")}</tbody></table></div></div>
+        <div class="mf"><button class="btn danger" data-act="ghosts-remove" ${g.sel.size ? "" : "disabled"}>Retirer ${g.sel.size} entrée(s) du registre</button></div></div></div>`;
+      return;
+    }
     if (this.s.confirm) {
       const c = this.s.confirm;
       host.innerHTML = `<div class="modal" data-act="noop"><div class="box" style="width:min(480px,100%)"><div class="mh"><h2>${esc(c.title)}</h2></div><div class="mb"><p style="margin:0">${esc(c.text)}</p></div>
@@ -452,15 +463,16 @@ class HaLibraryPanel extends HTMLElement {
 
   // ------------------------------------------------------------ events
   async onClick(e) {
-    const t = e.target.closest("button,[data-pkg],[data-spkg],input.pick,input[data-pub]");
+    const t = e.target.closest("button,[data-pkg],[data-spkg],input.pick,input[data-pub],input[data-ghost]");
     if (!t) return;
     const d = t.dataset;
     if (t.matches("input.pick") && d.pick) { d.pick && (t.checked ? this.s.cart.add(d.pick) : this.s.cart.delete(d.pick)); e.stopPropagation(); this.render(); return; }
     if (t.matches("input.pick") && d.incl) { e.stopPropagation(); return this.override({ package_id: d.incl, exclude: !t.checked }); }
+    if (d.ghost) { t.checked ? this.s.ghosts.sel.add(d.ghost) : this.s.ghosts.sel.delete(d.ghost); return this.renderModal(); }
     if (d.pub) { return this.saveSettings({ publish_to: d.pub }, "Les exports seront publiés sur ce dépôt"); }
     if (d.tab) { this.s.tab = d.tab; this.render(); return; }
     if (d.act === "menu") { this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true })); return; }
-    if (d.lv) { this.s.libView = d.lv; if (d.lv === "views" && !this._resources) { try { this._resources = await this._hass.callWS({ type: "lovelace/resources" }); } catch (_) { this._resources = []; } } this.render(); return; }
+    if (d.lv) { this.s.libView = d.lv; if (d.lv === "views" && !this._dashes) { try { this._dashes = await this.ws("dashboards"); } catch (_) { this._dashes = []; } } this.render(); return; }
     if (d.ctx !== undefined && t.closest(".seg")) { this.s.ctx = d.ctx; this.render(); return; }
     if (d.pkg) { this.s.sel = d.pkg; this.render(); return; }
     if (d.spkg) { this.s.scanSel = d.spkg; this.render(); return; }
@@ -473,6 +485,14 @@ class HaLibraryPanel extends HTMLElement {
     if (d.copyView) { const r = await this.ws("view", { source_id: this.s.source, view_id: d.copyView }); return this.copy(r.yaml); }
     if (d.sug) { this.s.modal.mapping[d.sug] = d.val; this.renderModal(); return; }
     if (d.rmsrc) { return this.saveSettings({ remove_source: d.rmsrc }, "Dépôt retiré"); }
+    if (d.addview) {
+      const sel = this.shadowRoot.querySelector(`[data-dash-for="${CSS.escape(d.addview)}"]`);
+      const dash = sel?.value; const title = this._dashes.find((x) => x.url_path === dash)?.title || dash;
+      return this.ask("Ajouter cette vue ?", `Elle sera ajoutée à la fin du dashboard « ${title} ». Une sauvegarde du dashboard est faite avant.`, "Ajouter", false, async () => {
+        const r = await this.ws("view/install", { source_id: this.s.source, view_id: d.addview, dashboard: dash });
+        this.toast(`Vue ajoutée (onglet « ${r.path} »)` + (r.missing_cards.length ? `\nCartes à installer via HACS : ${r.missing_cards.join(", ")}` : "") + (r.missing_entities.length ? `\n${r.missing_entities.length} entité(s) absente(s) sur cette instance` : ""), 8000);
+      });
+    }
     if (d.unmove) { return this.override({ item_uid: d.unmove, move_to: null }); }
     switch (d.act) {
       case "refresh": return this.refresh();
@@ -498,6 +518,11 @@ class HaLibraryPanel extends HTMLElement {
       case "replan": return this.replan();
       case "do-install": return this.install();
       case "restart": return this.ask("Redémarrer Home Assistant ?", "L’interface sera indisponible pendant le redémarrage.", "Redémarrer", false, () => this._hass.callService("homeassistant", "restart"));
+      case "ghosts": { const list = await this.ws("ghosts"); this.s.ghosts = { list, sel: new Set(list.map((x) => x.entity_id)) }; return this.renderModal(); }
+      case "ghosts-close": this.s.ghosts = null; return this.renderModal();
+      case "ghosts-all": this.s.ghosts.sel = new Set(this.s.ghosts.list.map((x) => x.entity_id)); return this.renderModal();
+      case "ghosts-none": this.s.ghosts.sel = new Set(); return this.renderModal();
+      case "ghosts-remove": { const ids = [...this.s.ghosts.sel]; return this.ask("Retirer ces entrées du registre ?", `${ids.length} entrée(s) seront retirées. Aucun fichier de configuration n’est modifié.`, "Retirer", true, async () => { const r = await this.ws("ghosts/remove", { entity_ids: ids }); this.s.ghosts = null; this.renderModal(); this.toast(`${r.removed.length} entrée(s) retirée(s)`); await this.scan(); }); }
       case "confirm-no": this.s.confirm = null; return this.renderModal();
       case "confirm-yes": { const fn = this.s.confirm.fn; this.s.confirm = null; this.renderModal(); try { await fn(); } catch (err) { this.err(err); } return; }
     }

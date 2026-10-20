@@ -12,7 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
-from . import analyzer, installer, library, scanner, yamlutil
+from . import analyzer, dashboards, installer, library, scanner, yamlutil
 from .const import (
     DOMAIN, PANEL_COMPONENT, PANEL_URL, STATIC_URL, STORAGE_KEY, STORAGE_VERSION, VERSION,
 )
@@ -371,7 +371,32 @@ async def ws_uninstall(hass, d: Data, msg):
     return res
 
 
+@_ws({vol.Required("type"): "ha_library/dashboards"})
+async def ws_dashboards(hass, d: Data, msg):
+    return dashboards.list_dashboards(hass)
+
+
+@_ws({
+    vol.Required("type"): "ha_library/view/install", vol.Required("source_id"): str,
+    vol.Required("view_id"): str, vol.Required("dashboard"): str, vol.Optional("mapping"): dict,
+})
+async def ws_view_install(hass, d: Data, msg):
+    yaml_text = await hass.async_add_executor_job(library.read_view, d.root(msg["source_id"]), msg["view_id"])
+    return await dashboards.async_install_view(hass, yaml_text, msg["dashboard"], _merged_mapping(d, msg.get("mapping")))
+
+
+@_ws({vol.Required("type"): "ha_library/ghosts"})
+async def ws_ghosts(hass, d: Data, msg):
+    return dashboards.ghost_entries(hass)
+
+
+@_ws({vol.Required("type"): "ha_library/ghosts/remove", vol.Required("entity_ids"): [str]})
+async def ws_ghosts_remove(hass, d: Data, msg):
+    return {"removed": dashboards.remove_ghosts(hass, msg["entity_ids"])}
+
+
 COMMANDS = [
     ws_settings_get, ws_settings_set, ws_scan, ws_scan_result, ws_override, ws_export, ws_publish,
     ws_refresh, ws_library, ws_package, ws_view, ws_lib_remove, ws_plan, ws_install, ws_uninstall,
+    ws_dashboards, ws_view_install, ws_ghosts, ws_ghosts_remove,
 ]
